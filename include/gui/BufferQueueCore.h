@@ -324,6 +324,7 @@ private:
 
     const uint64_t mUniqueId;
 
+    nsecs_t mConsumerNextExpectedPresent;
 }; // class BufferQueueCore
 
 } // namespace android

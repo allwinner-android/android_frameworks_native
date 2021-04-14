@@ -888,6 +888,94 @@ status_t BufferQueueProducer::queueBuffer(int slot,
                 mCore->mQueue.push_back(item);
                 frameAvailableListener = mCore->mConsumerListener;
             }
+
+            if (mCore->mConsumerNextExpectedPresent != 0 && !mCore->mQueue.empty()) {
+                BufferQueueCore::Fifo::iterator front(mCore->mQueue.begin());
+                const int MAX_REASONABLE_NSEC = 1000000000ULL; // 1 second
+                const nsecs_t expectedPresent = mCore->mConsumerNextExpectedPresent;
+
+                while (mCore->mQueue.size() > 1 && !mCore->mQueue[0].mIsAutoTimestamp) {
+                    const BufferItem& bufferItem(mCore->mQueue[1]);
+                    nsecs_t desiredPresent = bufferItem.mTimestamp;
+
+                    if (desiredPresent < expectedPresent - MAX_REASONABLE_NSEC ||
+                            desiredPresent > expectedPresent) {
+                        // This buffer is set to display in the near future, or
+                        // desiredPresent is garbage. Either way we don't want to drop
+                        // the previous buffer just to get this on the screen sooner.
+                        BQ_LOGV("queueBuffer: nodrop desire=%" PRId64 " expect=%"
+                                PRId64 " (%" PRId64 ") now=%" PRId64,
+                                desiredPresent, expectedPresent,
+                                desiredPresent - expectedPresent,
+                                systemTime(CLOCK_MONOTONIC));
+                        break;
+                    }
+
+                    BQ_LOGV("queueBuffer: drop desire=%" PRId64 " expect=%" PRId64
+                            " size=%zu",
+                            desiredPresent, expectedPresent, mCore->mQueue.size());
+
+                    if (!front->mIsStale) {
+                        // Front buffer is still in mSlots, so mark the slot as free
+                        mSlots[front->mSlot].mBufferState.freeQueued();
+
+                        // After leaving shared buffer mode, the shared buffer will
+                        // still be around. Mark it as no longer shared if this
+                        // operation causes it to be free.
+                        if (!mCore->mSharedBufferMode &&
+                                mSlots[front->mSlot].mBufferState.isFree()) {
+                            mSlots[front->mSlot].mBufferState.mShared = false;
+                        }
+
+                        // Don't put the shared buffer on the free list
+                        if (!mSlots[front->mSlot].mBufferState.isShared()) {
+                            mCore->mActiveBuffers.erase(front->mSlot);
+
+                            // mCore->mFreeBuffers.push_back(front->mSlot);
+                            auto iter = mCore->mFreeBuffers.begin();
+                            mCore->mFreeBuffers.insert(iter, front->mSlot);
+                        }
+                    }
+                    mCore->mQueue.erase(front);
+                    front = mCore->mQueue.begin();
+                    slot = mCore->mQueue[mCore->mQueue.size() - 1].mSlot;
+                }
+            }
+
+            if (mCore->mQueue.size() > 1 && !mCore->mQueue[0].mIsAutoTimestamp) {
+                BufferQueueCore::Fifo::iterator lastIter2(mCore->mQueue.begin() + mCore->mQueue.size() - 2);
+                BufferQueueCore::Fifo::iterator lastIter1(mCore->mQueue.begin() + mCore->mQueue.size() - 1);
+
+                if ((lastIter1->mTimestamp - lastIter2->mTimestamp) < 100000UL) {
+
+                    BQ_LOGV("drop same timestamp: %" PRId64 " - %" PRId64 ".",
+                            lastIter1->mTimestamp, lastIter2->mTimestamp);
+
+                    if (!lastIter2->mIsStale) {
+                        // Front buffer is still in mSlots, so mark the slot as free
+                        mSlots[lastIter2->mSlot].mBufferState.freeQueued();
+
+                        // After leaving shared buffer mode, the shared buffer will
+                        // still be around. Mark it as no longer shared if this
+                        // operation causes it to be free.
+                        if (!mCore->mSharedBufferMode &&
+                                mSlots[lastIter2->mSlot].mBufferState.isFree()) {
+                            mSlots[lastIter2->mSlot].mBufferState.mShared = false;
+                        }
+
+                        // Don't put the shared buffer on the free list
+                        if (!mSlots[lastIter2->mSlot].mBufferState.isShared()) {
+                            mCore->mActiveBuffers.erase(lastIter2->mSlot);
+
+                            // mCore->mFreeBuffers.push_back(lastIter2->mSlot);
+                            auto iter = mCore->mFreeBuffers.begin();
+                            mCore->mFreeBuffers.insert(iter, lastIter2->mSlot);
+                        }
+                    }
+                    mCore->mQueue.erase(lastIter2);
+                    slot = mCore->mQueue[mCore->mQueue.size() - 1].mSlot;
+                }
+            }
         }
 
         mCore->mBufferHasBeenQueued = true;

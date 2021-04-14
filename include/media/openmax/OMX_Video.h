@@ -66,6 +66,18 @@ extern "C" {
 #include <OMX_IVCommon.h>
 
 
+#define AW_VIDEO_AFBC_FLAG  (0x01)
+#define AW_VIDEO_HDR_FLAG   (0x02)
+#define AW_VIDEO_10BIT_FLAG (0x04)
+
+//* extend by aw
+typedef struct AW_OMX_VIDEO_HDR_INFO{
+    OMX_U32 nExtVideoFullRangeFlag;
+    OMX_U32 nExtTransferCharacteristics;
+    OMX_U32 nExtMatrixCoeffs;
+}AW_OMX_VIDEO_HDR_INFO;
+
+
 /**
  * Enumeration used to define the possible video compression codings.
  * NOTE:  This essentially refers to file extensions. If the coding is
@@ -89,8 +101,21 @@ typedef enum OMX_VIDEO_CODINGTYPE {
     OMX_VIDEO_CodingVP9,        /**< Google VP9 */
     OMX_VIDEO_CodingHEVC,       /**< ITU H.265/HEVC */
     OMX_VIDEO_CodingDolbyVision,/**< Dolby Vision */
+
     OMX_VIDEO_CodingKhronosExtensions = 0x6F000000, /**< Reserved region for introducing Khronos Standard Extensions */
     OMX_VIDEO_CodingVendorStartUnused = 0x7F000000, /**< Reserved region for introducing Vendor Extensions */
+
+    OMX_VIDEO_CodingVP6,
+    OMX_VIDEO_CodingMPEG1,
+    OMX_VIDEO_CodingS263,
+    OMX_VIDEO_CodingMSMPEG4V1,
+    OMX_VIDEO_CodingMSMPEG4V2,
+    OMX_VIDEO_CodingDIVX,
+    OMX_VIDEO_CodingXVID,
+    OMX_VIDEO_CodingRXG2,
+    OMX_VIDEO_CodingWMV1,
+    OMX_VIDEO_CodingWMV2,
+
     OMX_VIDEO_CodingMax = 0x7FFFFFFF
 } OMX_VIDEO_CODINGTYPE;
 

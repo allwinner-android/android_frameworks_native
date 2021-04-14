@@ -116,6 +116,12 @@ private:
         return static_cast<int32_t>(error);
     }
 
+    int32_t query(int32_t what, int32_t* value);
+    static int32_t queryHook(hwc2_device_t* device,
+            int32_t what, int32_t* value) {
+        return getAdapter(device)->query(what, value);
+    }
+
     // Display functions
 
     class Layer;
@@ -144,6 +150,11 @@ private:
 
             const sp<Fence>& get() const {
                 return mFences.front();
+            }
+
+            void clear() {
+                while (mFences.size() != 0)
+                mFences.pop();
             }
 
         private:
@@ -202,6 +213,7 @@ private:
                     int32_t* outTypes, float* outMaxLuminance,
                     float* outMaxAverageLuminance, float* outMinLuminance);
             HWC2::Error getName(uint32_t* outSize, char* outName);
+            HWC2::Error clearReleaseFences();
             HWC2::Error getReleaseFences(uint32_t* outNumElements,
                     hwc2_layer_t* outLayers, int32_t* outFences);
             HWC2::Error getRequests(int32_t* outDisplayRequests,
@@ -524,7 +536,9 @@ private:
             uint32_t getZ() const { return mZ; }
 
             void addReleaseFence(int fenceFd);
+            void clearReleaseFence();
             const sp<Fence>& getReleaseFence() const;
+            void clearAcquireFence();
 
             void setHwc1Id(size_t id) { mHwc1Id = id; }
             size_t getHwc1Id() const { return mHwc1Id; }
@@ -555,6 +569,7 @@ private:
             LatchedState<HWC2::BlendMode> mBlendMode;
             LatchedState<hwc_color_t> mColor;
             LatchedState<HWC2::Composition> mCompositionType;
+            LatchedState<android_dataspace_t> mDataspace;
             LatchedState<hwc_rect_t> mDisplayFrame;
             LatchedState<float> mPlaneAlpha;
             LatchedState<const native_handle_t*> mSidebandStream;

@@ -884,6 +884,21 @@ void SurfaceFlinger::onHotplugReceived(int32_t disp, bool connected) {
         Mutex::Autolock _l(mStateLock);
         if (connected) {
             createBuiltinDisplayLocked(type);
+#define _CREATE_DEVICE_ON_HOTPLUG
+#ifdef  _CREATE_DEVICE_ON_HOTPLUG
+        wp<IBinder> token = mBuiltinDisplays[type];
+        sp<IGraphicBufferProducer> producer;
+        sp<IGraphicBufferConsumer> consumer;
+        BufferQueue::createBufferQueue(&producer, &consumer,
+            new GraphicBufferAlloc());
+
+        sp<FramebufferSurface> fbs = new FramebufferSurface(*mHwc,
+                DisplayDevice::DISPLAY_EXTERNAL, consumer);
+        sp<DisplayDevice> hw = new DisplayDevice(this,
+                DisplayDevice::DISPLAY_EXTERNAL, disp, false, token, fbs,
+                producer, mRenderEngine->getEGLConfig());
+        mDisplays.add(token, hw);
+#endif
         } else {
             mCurrentState.displays.removeItem(mBuiltinDisplays[type]);
             mBuiltinDisplays[type].clear();
@@ -1433,8 +1448,15 @@ void SurfaceFlinger::handleTransactionLocked(uint32_t transactionFlags)
                                 || (state.viewport != draw[i].viewport)
                                 || (state.frame != draw[i].frame))
                         {
+                            Rect frame = state.frame;
+                            if (state.type == DisplayDevice::DISPLAY_PRIMARY) {
+                            } else if (state.type == DisplayDevice::DISPLAY_EXTERNAL) {
+                                frame = Rect(disp->getWidth(), disp->getHeight());
+                                ALOGE("state frame %d x %d, frame from dispdev %d x %d",
+                                state.frame.width(), state.frame.height(), disp->getWidth(), disp->getHeight());
+                            }
                             disp->setProjection(state.orientation,
-                                    state.viewport, state.frame);
+                                    state.viewport, frame);
                         }
                         if (state.width != draw[i].width || state.height != draw[i].height) {
                             disp->setDisplaySize(state.width, state.height);
@@ -1845,6 +1867,12 @@ bool SurfaceFlinger::handlePageFlip()
         const Layer::State& s(layer->getDrawingState());
         invalidateLayerStack(s.layerStack, dirty);
     }
+
+    for (size_t i = 0, count = layers.size(); i<count ; i++) {
+        const sp<Layer>& layer(layers[i]);
+        layer->updateNextExpectedPresent(mPrimaryDispSync);
+    }
+
 
     mVisibleRegionsDirty |= visibleRegions;
 
@@ -2449,8 +2477,29 @@ void SurfaceFlinger::onInitializeDisplays() {
     d.width = 0;
     d.height = 0;
     displays.add(d);
+
+    if (mBuiltinDisplays[DisplayDevice::DISPLAY_EXTERNAL] != NULL) {
+        const sp<DisplayDevice> disp(getDisplayDevice(mBuiltinDisplays[DisplayDevice::DISPLAY_PRIMARY]));
+
+        DisplayState external;
+        external.what = DisplayState::eDisplayProjectionChanged |
+                 DisplayState::eLayerStackChanged;
+        external.token = mBuiltinDisplays[DisplayDevice::DISPLAY_EXTERNAL];
+        external.layerStack = 0;
+        external.orientation = DisplayState::eOrientationDefault;
+        external.frame.makeInvalid();
+        external.viewport = Rect(disp->getWidth(), disp->getHeight());
+        external.width = 0;
+        external.height = 0;
+        displays.add(external);
+    }
+
     setTransactionState(state, displays, 0);
     setPowerModeInternal(getDisplayDevice(d.token), HWC_POWER_MODE_NORMAL);
+
+    if (mBuiltinDisplays[DisplayDevice::DISPLAY_EXTERNAL] != NULL) {
+        setPowerModeInternal(getDisplayDevice(mBuiltinDisplays[DisplayDevice::DISPLAY_EXTERNAL]), HWC_POWER_MODE_NORMAL);
+    }
 
     const auto& activeConfig = mHwc->getActiveConfig(HWC_DISPLAY_PRIMARY);
     const nsecs_t period = activeConfig->getVsyncPeriod();

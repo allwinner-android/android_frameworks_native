@@ -52,6 +52,7 @@ enum {
     SET_TRANSFORM_HINT,
     GET_SIDEBAND_STREAM,
     DUMP,
+    SET_NEXT_EXPECTEDPRESENT,
 };
 
 
@@ -268,6 +269,17 @@ public:
         remote()->transact(DUMP, data, &reply);
         reply.readString8();
     }
+
+    virtual status_t setNextExpectedPresent(nsecs_t expectedPresent) {
+        Parcel data, reply;
+        data.writeInterfaceToken(IGraphicBufferConsumer::getInterfaceDescriptor());
+        data.writeInt64(expectedPresent);
+        status_t result = remote()->transact(SET_NEXT_EXPECTEDPRESENT, data, &reply);
+        if (result != NO_ERROR) {
+            return result;
+        }
+        return reply.readInt32();
+    }
 };
 
 // Out-of-line virtual method definition to trigger vtable emission in this
@@ -417,6 +429,13 @@ status_t BnGraphicBufferConsumer::onTransact(
             reply->writeString8(result);
             return NO_ERROR;
         }
+        case SET_NEXT_EXPECTEDPRESENT: {
+            CHECK_INTERFACE(IGraphicBufferConsumer, data, reply);
+            int64_t presentWhen = data.readInt64();
+            status_t result = setNextExpectedPresent(presentWhen);
+            reply->writeInt32(result);
+            return NO_ERROR;
+        };
     }
     return BBinder::onTransact(code, data, reply, flags);
 }

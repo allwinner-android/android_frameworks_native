@@ -749,6 +749,9 @@ void Layer::setPerFrameData(const sp<const DisplayDevice>& displayDevice) {
                 mActiveBuffer->handle, to_string(error).c_str(),
                 static_cast<int32_t>(error));
     }
+
+    auto dataSpace = mSurfaceFlingerConsumer->getCurrentDataSpace();
+    error = hwcLayer->setDataspace(dataSpace);
 }
 #else
 void Layer::setPerFrameData(const sp<const DisplayDevice>& hw,
@@ -911,7 +914,8 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
         // is probably going to have something visibly wrong.
     }
 
-    bool blackOutLayer = isProtected() || (isSecure() && !hw->isSecure());
+    bool blackOutLayer = isProtected() || (isSecure() && !hw->isSecure())
+            || isSkipRenderEngine();
 
     RenderEngine& engine(mFlinger->getRenderEngine());
 
@@ -1229,6 +1233,15 @@ bool Layer::isProtected() const
     const sp<GraphicBuffer>& activeBuffer(mActiveBuffer);
     return (activeBuffer != 0) &&
             (activeBuffer->getUsage() & GRALLOC_USAGE_PROTECTED);
+}
+
+bool Layer::isSkipRenderEngine() const {
+    const HWComposer& hwc = mFlinger->getHwComposer();
+    const sp<GraphicBuffer>& activeBuffer(mActiveBuffer);
+    if (activeBuffer != 0)
+        return hwc.isSkipGpuBuffer(activeBuffer);
+    else
+        return false;
 }
 
 bool Layer::isFixedSize() const {
@@ -1667,6 +1680,12 @@ bool Layer::shouldPresentNow(const DispSync& dispSync) const {
 
     bool isDue = timestamp < expectedPresent;
     return isDue || !isPlausible;
+}
+
+bool Layer::updateNextExpectedPresent(const DispSync& dispSync) const {
+    Mutex::Autolock lock(mQueueItemLock);
+    mSurfaceFlingerConsumer->updateNextExpectedPresent(dispSync);
+    return true;
 }
 
 bool Layer::onPreComposition() {

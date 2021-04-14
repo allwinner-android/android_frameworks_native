@@ -156,6 +156,7 @@ GLConsumer::GLConsumer(const sp<IGraphicBufferConsumer>& bq, uint32_t tex,
     mCurrentTransform(0),
     mCurrentScalingMode(NATIVE_WINDOW_SCALING_MODE_FREEZE),
     mCurrentFence(Fence::NO_FENCE),
+    mCurrentDataSpace(HAL_DATASPACE_UNKNOWN),
     mCurrentTimestamp(0),
     mCurrentFrameNumber(0),
     mDefaultWidth(1),
@@ -184,6 +185,7 @@ GLConsumer::GLConsumer(const sp<IGraphicBufferConsumer>& bq, uint32_t texTarget,
     mCurrentTransform(0),
     mCurrentScalingMode(NATIVE_WINDOW_SCALING_MODE_FREEZE),
     mCurrentFence(Fence::NO_FENCE),
+    mCurrentDataSpace(HAL_DATASPACE_UNKNOWN),
     mCurrentTimestamp(0),
     mCurrentFrameNumber(0),
     mDefaultWidth(1),
@@ -322,6 +324,7 @@ status_t GLConsumer::releaseTexImage() {
         mCurrentTransform = 0;
         mCurrentTimestamp = 0;
         mCurrentFence = Fence::NO_FENCE;
+        mCurrentDataSpace = HAL_DATASPACE_UNKNOWN;
 
         if (mAttached) {
             // This binds a dummy buffer (mReleasedTexImage).
@@ -487,6 +490,7 @@ status_t GLConsumer::updateAndReleaseLocked(const BufferItem& item,
     mCurrentScalingMode = item.mScalingMode;
     mCurrentTimestamp = item.mTimestamp;
     mCurrentFence = item.mFence;
+    mCurrentDataSpace = item.mDataSpace;
     mCurrentFrameNumber = item.mFrameNumber;
 
     computeCurrentTransformMatrixLocked();
@@ -978,6 +982,11 @@ uint32_t GLConsumer::getCurrentScalingMode() const {
 sp<Fence> GLConsumer::getCurrentFence() const {
     Mutex::Autolock lock(mMutex);
     return mCurrentFence;
+}
+
+android_dataspace_t GLConsumer::getCurrentDataSpace() const {
+    Mutex::Autolock lock(mMutex);
+    return mCurrentDataSpace;
 }
 
 status_t GLConsumer::doGLFenceWait() const {

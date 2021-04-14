@@ -210,6 +210,11 @@ public:
     virtual bool isProtected() const;
 
     /*
+     * isSkipRenderEngine - true if the layer cannot be dealed with RenderEngine.
+     */
+    virtual bool isSkipRenderEngine() const;
+
+    /*
      * isVisible - true if this layer is visible, false otherwise
      */
     virtual bool isVisible() const;
@@ -266,6 +271,8 @@ public:
 #endif
 
     bool shouldPresentNow(const DispSync& dispSync) const;
+    bool updateNextExpectedPresent(const DispSync& dispSync) const;
+
 
     /*
      * called before composition.

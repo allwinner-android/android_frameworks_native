@@ -187,6 +187,8 @@ public:
     // ready to be read from.
     sp<Fence> getCurrentFence() const;
 
+    android_dataspace_t getCurrentDataSpace() const;
+
     // doGLFenceWait inserts a wait command into the OpenGL ES command stream
     // to ensure that it is safe for future OpenGL ES commands to access the
     // current texture buffer.
@@ -397,6 +399,8 @@ private:
 
     // mCurrentFence is the fence received from BufferQueue in updateTexImage.
     sp<Fence> mCurrentFence;
+
+    android_dataspace_t mCurrentDataSpace;
 
     // mCurrentTransformMatrix is the transform matrix for the current texture.
     // It gets computed by computeTransformMatrix each time updateTexImage is

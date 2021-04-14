@@ -158,6 +158,8 @@ public:
     std::shared_ptr<const HWC2::Display::Config>
             getActiveConfig(int32_t displayId) const;
 
+    bool isSkipGpuBuffer(const sp<GraphicBuffer>& buf) const;
+
     // for debugging ----------------------------------------------------------
     void dump(String8& out) const;
 

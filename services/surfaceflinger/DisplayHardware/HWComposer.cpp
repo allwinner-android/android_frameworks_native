@@ -693,6 +693,7 @@ void HWComposer::disconnectDisplay(int displayId) {
     auto hwcId = displayData.hwcDisplay->getId();
     mHwcDisplaySlots.erase(hwcId);
     displayData.reset();
+    ALOGD("disconnect display (%lld)", hwcId);
 }
 
 status_t HWComposer::setOutputBuffer(int32_t displayId,
@@ -774,6 +775,17 @@ static String8 getFormatStr(PixelFormat format) {
     }
 }
 */
+
+bool HWComposer::isSkipGpuBuffer(
+       const sp<GraphicBuffer>& buf) const {
+    if (buf->handle) {
+        buffer_handle_t handle = buf->handle;
+        int ret = mHwcDevice->query(HWC_IS_SKIP_GPU_BUFFER, (int *)handle);
+        return ret ? true : false;
+    } else {
+        return false;
+    }
+}
 
 void HWComposer::dump(String8& result) const {
     // TODO: In order to provide a dump equivalent to HWC1, we need to shadow

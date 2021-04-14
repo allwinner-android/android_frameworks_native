@@ -268,6 +268,8 @@ public:
     // dump state into a string
     virtual void dump(String8& result, const char* prefix) const = 0;
 
+    virtual status_t setNextExpectedPresent(nsecs_t expectedPresent) = 0;
+
 public:
     DECLARE_META_INTERFACE(GraphicBufferConsumer);
 };

@@ -75,6 +75,7 @@ public:
     sp<NativeHandle> getSidebandStream() const;
 
     nsecs_t computeExpectedPresent(const DispSync& dispSync);
+    status_t updateNextExpectedPresent(const DispSync& dispSync);
 
     virtual void setReleaseFence(const sp<Fence>& fence) override;
     sp<Fence> getPrevReleaseFence() const;

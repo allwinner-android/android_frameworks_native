@@ -93,6 +93,8 @@ public:
 
     bool hasCapability(HWC2::Capability capability) const;
 
+    int32_t query(int32_t what, int32_t* value);
+
 private:
     // Initialization methods
 
@@ -138,6 +140,7 @@ private:
     HWC2_PFN_DUMP mDump;
     HWC2_PFN_GET_MAX_VIRTUAL_DISPLAY_COUNT mGetMaxVirtualDisplayCount;
     HWC2_PFN_REGISTER_CALLBACK mRegisterCallback;
+    HWC2_PFN_QUERY mQuery;
 
     // Display function pointers
     HWC2_PFN_ACCEPT_DISPLAY_CHANGES mAcceptDisplayChanges;

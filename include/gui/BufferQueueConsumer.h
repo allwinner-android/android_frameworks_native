@@ -133,6 +133,9 @@ public:
     // NATIVE_WINDOW_TRANSFORM_ROT_90.  The default is 0 (no transform).
     virtual status_t setTransformHint(uint32_t hint);
 
+	// checkin the next expectedPresent of consumer for producer to drop buffer
+	virtual status_t setNextExpectedPresent(nsecs_t expectedPresent);
+
     // Retrieve the sideband buffer stream, if any.
     virtual sp<NativeHandle> getSidebandStream() const;
 

@@ -187,6 +187,13 @@ nsecs_t SurfaceFlingerConsumer::computeExpectedPresent(const DispSync& dispSync)
     return nextRefresh + extraPadding;
 }
 
+status_t SurfaceFlingerConsumer::updateNextExpectedPresent(const DispSync& dispSync)
+{
+    nsecs_t nextExpectedPresent = dispSync.computeNextRefresh(1);
+    nsecs_t offset = (const_cast<DispSync&>(dispSync)).getPeriod() / 5;
+    return mConsumer->setNextExpectedPresent(nextExpectedPresent - offset);
+}
+
 #ifdef USE_HWC2
 void SurfaceFlingerConsumer::setReleaseFence(const sp<Fence>& fence)
 {

@@ -86,6 +86,7 @@ void HWC2On1Adapter::DisplayContentsDeleter::operator()(
         for (size_t l = 0; l < contents->numHwLayers; ++l) {
             auto& layer = contents->hwLayers[l];
             std::free(const_cast<hwc_rect_t*>(layer.visibleRegionScreen.rects));
+            std::free(const_cast<hwc_rect_t*>(layer.surfaceDamage.rects));
         }
     }
     std::free(contents);
@@ -193,6 +194,8 @@ hwc2_function_pointer_t HWC2On1Adapter::doGetFunction(
                     getMaxVirtualDisplayCountHook);
         case FunctionDescriptor::RegisterCallback:
             return asFP<HWC2_PFN_REGISTER_CALLBACK>(registerCallbackHook);
+        case FunctionDescriptor::Query:
+            return asFP<HWC2_PFN_QUERY>(queryHook);
 
         // Display functions
         case FunctionDescriptor::AcceptDisplayChanges:
@@ -452,6 +455,13 @@ void HWC2On1Adapter::dump(uint32_t* outSize, char* outBuffer)
 uint32_t HWC2On1Adapter::getMaxVirtualDisplayCount()
 {
     return mHwc1SupportsVirtualDisplays ? 1 : 0;
+}
+
+int32_t HWC2On1Adapter::query(int32_t what, int32_t* value)
+{
+    if (mHwc1Device->query)
+        return mHwc1Device->query(mHwc1Device, what, value);
+    return 0;
 }
 
 static bool isValid(Callback descriptor) {
@@ -790,6 +800,20 @@ Error HWC2On1Adapter::Display::getReleaseFences(uint32_t* outNumElements,
     }
     *outNumElements = numWritten;
 
+    return Error::None;
+}
+
+Error HWC2On1Adapter::Display::clearReleaseFences()
+{
+    std::unique_lock<std::recursive_mutex> lock(mStateMutex);
+
+    for (const auto& layer : mLayers) {
+        layer->clearReleaseFence();
+        layer->clearAcquireFence();
+    }
+    mClientTarget.setFence(-1);
+    mOutputBuffer.setFence(-1);
+    ALOGD("drop fence on total %d layers", mLayers.size());
     return Error::None;
 }
 
@@ -1525,6 +1549,14 @@ static std::string alphaString(float f)
     return std::string(buffer, bytesWritten);
 }
 
+static std::string dataspaceString(android_dataspace_t dataspace)
+{
+    const size_t BUFFER_SIZE = 16;
+    char buffer[BUFFER_SIZE] = {};
+    auto bytesWritten = snprintf(buffer, BUFFER_SIZE, "0x%08x", dataspace);
+    return std::string(buffer, bytesWritten);
+}
+
 static std::string to_string(const hwc_layer_1_t& hwcLayer,
         int32_t hwc1MinorVersion)
 {
@@ -1946,6 +1978,7 @@ void HWC2On1Adapter::Display::prepareFramebufferTarget()
     hwc1Target.displayFrame = {0, 0, width, height};
     hwc1Target.planeAlpha = 255;
     hwc1Target.visibleRegionScreen.numRects = 1;
+    std::free(const_cast<hwc_rect_t*>(hwc1Target.visibleRegionScreen.rects));
     auto rects = static_cast<hwc_rect_t*>(std::malloc(sizeof(hwc_rect_t)));
     rects[0].left = 0;
     rects[0].top = 0;
@@ -1970,6 +2003,7 @@ HWC2On1Adapter::Layer::Layer(Display& display)
     mBlendMode(*this, BlendMode::None),
     mColor(*this, {0, 0, 0, 0}),
     mCompositionType(*this, Composition::Invalid),
+    mDataspace(*this, HAL_DATASPACE_UNKNOWN),
     mDisplayFrame(*this, {0, 0, -1, -1}),
     mPlaneAlpha(*this, 0.0f),
     mSidebandStream(*this, nullptr),
@@ -2042,7 +2076,9 @@ Error HWC2On1Adapter::Layer::setCompositionType(Composition type)
 
 Error HWC2On1Adapter::Layer::setDataspace(android_dataspace_t dataspace)
 {
-    mHasUnsupportedDataspace = (dataspace != HAL_DATASPACE_UNKNOWN);
+    //mHasUnsupportedDataspace = (dataspace != HAL_DATASPACE_UNKNOWN);
+    //ALOGD("%s: dataspace=%d", __FUNCTION__, dataspace);
+    mDataspace.setPending(dataspace);
     return Error::None;
 }
 
@@ -2094,6 +2130,16 @@ void HWC2On1Adapter::Layer::addReleaseFence(int fenceFd)
 {
     ALOGV("addReleaseFence %d to layer %" PRIu64, fenceFd, mId);
     mReleaseFence.add(fenceFd);
+}
+
+void HWC2On1Adapter::Layer::clearReleaseFence()
+{
+    mReleaseFence.clear();
+}
+
+void HWC2On1Adapter::Layer::clearAcquireFence()
+{
+    mBuffer.setFence(-1);
 }
 
 const sp<Fence>& HWC2On1Adapter::Layer::getReleaseFence() const
@@ -2172,6 +2218,10 @@ std::string HWC2On1Adapter::Layer::dump() const
         if (mPlaneAlpha.getValue() != 1.0f) {
             output << "  Alpha: " <<
                 alphaString(mPlaneAlpha.getValue()) << '\n';
+        }
+        if (mDataspace.getValue() != HAL_DATASPACE_UNKNOWN) {
+            output << "  Dataspace: " <<
+                dataspaceString(mDataspace.getValue()) << '\n';
         } else {
             output << '\n';
         }
@@ -2203,7 +2253,7 @@ void HWC2On1Adapter::Layer::applyCommonState(hwc_layer_1_t& hwc1Layer,
     }
     if (applyAllState || mPlaneAlpha.isDirty()) {
         auto pendingAlpha = mPlaneAlpha.getPendingValue();
-        if (minorVersion < 2) {
+        if (minorVersion < 1) {
             mHasUnsupportedPlaneAlpha = pendingAlpha < 1.0f;
         } else {
             hwc1Layer.planeAlpha =
@@ -2244,6 +2294,11 @@ void HWC2On1Adapter::Layer::applyCommonState(hwc_layer_1_t& hwc1Layer,
         hwc1VisibleRegion.rects = const_cast<const hwc_rect_t*>(newRects);
         hwc1VisibleRegion.numRects = pending.size();
         mVisibleRegion.latch();
+    }
+    if (applyAllState || mDataspace.isDirty()) {
+        hwc1Layer.dataspace =
+                static_cast<int32_t>(mDataspace.getPendingValue());
+        mDataspace.latch();
     }
 }
 
@@ -2474,7 +2529,8 @@ bool HWC2On1Adapter::prepareAllDisplays()
 
     // Return the received contents to their respective displays
     for (size_t hwc1Id = 0; hwc1Id < mHwc1Contents.size(); ++hwc1Id) {
-        if (mHwc1Contents[hwc1Id] == nullptr) {
+        if ((mHwc1Contents[hwc1Id] == nullptr)
+                || (0 == mHwc1DisplayMap.count(hwc1Id))) {
             continue;
         }
 
@@ -2494,7 +2550,13 @@ Error HWC2On1Adapter::setAllDisplays()
 
     // Make sure we're ready to validate
     for (size_t hwc1Id = 0; hwc1Id < mHwc1Contents.size(); ++hwc1Id) {
-        if (mHwc1Contents[hwc1Id] == nullptr) {
+        if ((mHwc1Contents[hwc1Id] == nullptr)
+                || (0 == mHwc1DisplayMap.count(hwc1Id))) {
+
+            if (mHwc1Contents[hwc1Id] != nullptr) {
+                mHwc1Contents.erase(mHwc1Contents.cbegin() + hwc1Id);
+                ALOGE("Clear disconnected display contents");
+            }
             continue;
         }
 
@@ -2517,7 +2579,8 @@ Error HWC2On1Adapter::setAllDisplays()
 
     // Add retire and release fences
     for (size_t hwc1Id = 0; hwc1Id < mHwc1Contents.size(); ++hwc1Id) {
-        if (mHwc1Contents[hwc1Id] == nullptr) {
+        if ((mHwc1Contents[hwc1Id] == nullptr)
+                || (0 == mHwc1DisplayMap.count(hwc1Id))) {
             continue;
         }
 
@@ -2603,6 +2666,19 @@ void HWC2On1Adapter::hwc1Hotplug(int hwc1DisplayId, int connected)
     // If the HWC2-side callback hasn't been registered yet, buffer this until
     // it is registered
     if (mCallbacks.count(Callback::Hotplug) == 0) {
+        ALOGE("Hotplug Callback not install, pending (%d %d)", hwc1DisplayId, connected);
+
+        if (connected && mHwc1DisplayMap.count(hwc1DisplayId) == 0) {
+            // Create a new display on connected
+            hwc2_display_t displayId = UINT64_MAX;
+            auto display = std::make_shared<HWC2On1Adapter::Display>(*this, HWC2::DisplayType::Physical);
+            display->setHwc1Id(HWC_DISPLAY_EXTERNAL);
+            display->populateConfigs();
+            displayId = display->getId();
+            mHwc1DisplayMap[HWC_DISPLAY_EXTERNAL] = displayId;
+            mDisplays.emplace(displayId, std::move(display));
+        }
+
         mPendingHotplugs.emplace_back(hwc1DisplayId, connected);
         return;
     }
@@ -2628,7 +2704,12 @@ void HWC2On1Adapter::hwc1Hotplug(int hwc1DisplayId, int connected)
                     "display");
             return;
         }
-
+        {
+            // clear unused release fence fd
+            displayId = mHwc1DisplayMap[hwc1DisplayId];
+            auto& display = mDisplays[displayId];
+            display->clearReleaseFences();
+        }
         // Disconnect an existing display
         displayId = mHwc1DisplayMap[hwc1DisplayId];
         mHwc1DisplayMap.erase(HWC_DISPLAY_EXTERNAL);

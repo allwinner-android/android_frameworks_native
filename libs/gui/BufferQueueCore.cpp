@@ -89,7 +89,8 @@ BufferQueueCore::BufferQueueCore(const sp<IGraphicBufferAlloc>& allocator) :
     mSharedBufferSlot(INVALID_BUFFER_SLOT),
     mSharedBufferCache(Rect::INVALID_RECT, 0, NATIVE_WINDOW_SCALING_MODE_FREEZE,
             HAL_DATASPACE_UNKNOWN),
-    mUniqueId(getUniqueId())
+    mUniqueId(getUniqueId()),
+    mConsumerNextExpectedPresent(0)
 {
     if (allocator == NULL) {
         sp<ISurfaceComposer> composer(ComposerService::getComposerService());

@@ -91,6 +91,7 @@ Device::Device(hwc2_device_t* device)
     mDump(nullptr),
     mGetMaxVirtualDisplayCount(nullptr),
     mRegisterCallback(nullptr),
+    mQuery(nullptr),
     mAcceptDisplayChanges(nullptr),
     mCreateLayer(nullptr),
     mDestroyLayer(nullptr),
@@ -184,6 +185,11 @@ std::string Device::dump() const
     mDump(mHwcDevice, &numBytes, buffer.data());
 
     return std::string(buffer.data(), buffer.size());
+}
+
+int32_t Device::query(int32_t what, int32_t* value)
+{
+    return mQuery(mHwcDevice, what, value);
 }
 
 uint32_t Device::getMaxVirtualDisplayCount() const
@@ -321,7 +327,7 @@ void Device::loadFunctionPointers()
     // For all of these early returns, we log an error message inside
     // loadFunctionPointer specifying which function failed to load
 
-    // Display function pointers
+    // Device function pointers
     if (!loadFunctionPointer(FunctionDescriptor::CreateVirtualDisplay,
             mCreateVirtualDisplay)) return;
     if (!loadFunctionPointer(FunctionDescriptor::DestroyVirtualDisplay,
@@ -331,8 +337,10 @@ void Device::loadFunctionPointers()
             mGetMaxVirtualDisplayCount)) return;
     if (!loadFunctionPointer(FunctionDescriptor::RegisterCallback,
             mRegisterCallback)) return;
+    if (!loadFunctionPointer(FunctionDescriptor::Query,
+            mQuery)) return;
 
-    // Device function pointers
+    // Display function pointers
     if (!loadFunctionPointer(FunctionDescriptor::AcceptDisplayChanges,
             mAcceptDisplayChanges)) return;
     if (!loadFunctionPointer(FunctionDescriptor::CreateLayer,
@@ -666,9 +674,21 @@ Error Display::getType(DisplayType* outType) const
             &intType);
     auto error = static_cast<Error>(intError);
     if (error != Error::None) {
+        if (error == Error::BadDisplay) {
+            /*
+             * On hotplug out event received, HWC2On1Adapter had already
+             * close the HWC2On1Adapter::Display object, So the mGetDisplayType()
+             * will return BadDisplay always, That will lead to HWComposer::disconnectDisplay()
+             * failed with "disconnectDisplay: Failed to determine type of display..."
+             */
+            ALOGE("call getType() on plugout device!");
+            intType = static_cast<int32_t>(HWC2::DisplayType::Physical);
+            goto __out;
+        }
         return error;
     }
 
+__out:
     *outType = static_cast<DisplayType>(intType);
     return Error::None;
 }

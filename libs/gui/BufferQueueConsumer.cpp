@@ -732,4 +732,11 @@ void BufferQueueConsumer::dump(String8& result, const char* prefix) const {
     }
 }
 
+status_t BufferQueueConsumer::setNextExpectedPresent(nsecs_t expectedPresent) {
+    BQ_LOGV("setNextExpectedPresent: %" PRId64, expectedPresent);
+    Mutex::Autolock lock(mCore->mMutex);
+    mCore->mConsumerNextExpectedPresent = expectedPresent;
+    return NO_ERROR;
+}
+
 } // namespace android
