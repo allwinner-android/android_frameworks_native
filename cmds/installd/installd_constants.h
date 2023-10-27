@@ -57,6 +57,13 @@ constexpr int DEXOPT_GENERATE_COMPACT_DEX = 1 << 11;
 constexpr int DEXOPT_GENERATE_APP_IMAGE = 1 << 12;
 constexpr int DEXOPT_FOR_RESTORE = 1 << 13; // TODO(b/135202722): remove
 
+
+/*AW_CODE;add dexopt flag for PGO-immediately;jiangbin;191009*/
+constexpr int DEXOPT_LAUNCHEDWITHPGO = 1 << 30;
+/*end*/
+
+
+
 /* all known values for dexopt flags */
 constexpr int DEXOPT_MASK =
     DEXOPT_PUBLIC
@@ -71,7 +78,8 @@ constexpr int DEXOPT_MASK =
     | DEXOPT_ENABLE_HIDDEN_API_CHECKS
     | DEXOPT_GENERATE_COMPACT_DEX
     | DEXOPT_GENERATE_APP_IMAGE
-    | DEXOPT_FOR_RESTORE;
+    | DEXOPT_FOR_RESTORE
+    | DEXOPT_LAUNCHEDWITHPGO;//AW_CODE;jiangbin
 
 // NOTE: keep in sync with StorageManager
 constexpr int FLAG_STORAGE_DE = 1 << 0;

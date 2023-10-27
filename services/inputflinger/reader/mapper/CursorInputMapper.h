@@ -94,6 +94,7 @@ private:
     float mYScale;
     float mXPrecision;
     float mYPrecision;
+    bool mOverrideRightClick;
 
     float mVWheelScale;
     float mHWheelScale;

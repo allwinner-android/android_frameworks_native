@@ -37,6 +37,8 @@ void SingleTouchInputMapper::process(const RawEvent* rawEvent) {
 
 void SingleTouchInputMapper::syncTouch(nsecs_t when, RawState* outState) {
     if (mTouchButtonAccumulator.isToolActive()) {
+		int32_t tmpX, tmpY;
+
         outState->rawPointerData.pointerCount = 1;
         outState->rawPointerData.idToIndex[0] = 0;
 
@@ -48,8 +50,26 @@ void SingleTouchInputMapper::syncTouch(nsecs_t when, RawState* outState) {
 
         RawPointerData::Pointer& outPointer = outState->rawPointerData.pointers[0];
         outPointer.id = 0;
-        outPointer.x = mSingleTouchMotionAccumulator.getAbsoluteX();
-        outPointer.y = mSingleTouchMotionAccumulator.getAbsoluteY();
+        tmpX = mSingleTouchMotionAccumulator.getAbsoluteX();
+        tmpY = mSingleTouchMotionAccumulator.getAbsoluteY();
+        switch (mParameters.rotation) {
+            case Parameters::ROTATION_90:
+                std::swap(tmpX, tmpY);
+                tmpY = mRawPointerAxes.y.maxValue - tmpY;
+                break;
+            case Parameters::ROTATION_180:
+                tmpX = mRawPointerAxes.x.maxValue - tmpX;
+                tmpY = mRawPointerAxes.y.maxValue - tmpY;
+                break;
+            case Parameters::ROTATION_270:
+                std::swap(tmpX, tmpY);
+                tmpX = mRawPointerAxes.x.maxValue - tmpX;
+                break;
+            default:
+                break;
+        }
+        outPointer.x = tmpX;
+        outPointer.y = tmpY;
         outPointer.pressure = mSingleTouchMotionAccumulator.getAbsolutePressure();
         outPointer.touchMajor = 0;
         outPointer.touchMinor = 0;
@@ -70,8 +90,14 @@ void SingleTouchInputMapper::syncTouch(nsecs_t when, RawState* outState) {
 void SingleTouchInputMapper::configureRawPointerAxes() {
     TouchInputMapper::configureRawPointerAxes();
 
-    getAbsoluteAxisInfo(ABS_X, &mRawPointerAxes.x);
-    getAbsoluteAxisInfo(ABS_Y, &mRawPointerAxes.y);
+    if (mParameters.rotation == Parameters::ROTATION_90 ||
+            mParameters.rotation == Parameters::ROTATION_270) {
+        getAbsoluteAxisInfo(ABS_Y, &mRawPointerAxes.x);
+        getAbsoluteAxisInfo(ABS_X, &mRawPointerAxes.y);
+    } else {
+        getAbsoluteAxisInfo(ABS_X, &mRawPointerAxes.x);
+        getAbsoluteAxisInfo(ABS_Y, &mRawPointerAxes.y);
+    }
     getAbsoluteAxisInfo(ABS_PRESSURE, &mRawPointerAxes.pressure);
     getAbsoluteAxisInfo(ABS_TOOL_WIDTH, &mRawPointerAxes.toolMajor);
     getAbsoluteAxisInfo(ABS_DISTANCE, &mRawPointerAxes.distance);

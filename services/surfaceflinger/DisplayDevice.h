@@ -226,7 +226,7 @@ private:
 
     // TODO(b/74619554): Remove special cases for primary display.
     const bool mIsPrimary;
-
+    ui::Rotation mDefaultRotation;
     std::optional<DeviceProductInfo> mDeviceProductInfo;
 
     std::vector<ui::Hdr> mOverrideHdrTypes;

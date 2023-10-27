@@ -534,6 +534,33 @@ void Scheduler::resync() {
     }
 }
 
+
+
+/*AW_code:for skip-frame(60->30fps scale=0.5);jiangbin 210818*/
+void Scheduler::setRefreshSkipScale(float scale) {
+    std::lock_guard<std::mutex> lock(mHWVsyncLock);
+    if(scale > 0.0f && scale < 1.0f ) {
+        mRefreshPeriodScale = 1/scale;
+        mRecordPeriod = mVsyncSchedule.tracker->currentPeriod();
+        mVsyncSchedule.tracker->setPeriod(nsecs_t(mRecordPeriod * mRefreshPeriodScale));
+        ALOGE("VSyncReactor recordperiod-fps=  %.3f with scale=%f",1000000000.0 / mRecordPeriod,mRefreshPeriodScale);
+
+    } else if((mRefreshPeriodScale != 0) && (mRecordPeriod != 0)) {
+        ALOGE("VSyncReactor reset with recordperiod-fps=  %.3f",1000000000.0 / mRecordPeriod);
+
+        mVsyncSchedule.tracker->setPeriod(mRecordPeriod);
+        mRefreshPeriodScale = 0;
+        mRecordPeriod = 0;
+    }
+
+    return;
+}
+/*end*/
+
+
+
+
+
 void Scheduler::setVsyncPeriod(nsecs_t period) {
     std::lock_guard<std::mutex> lock(mHWVsyncLock);
     mVsyncSchedule.controller->startPeriodTransition(period);

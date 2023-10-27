@@ -167,6 +167,9 @@ public:
     // Notifies the scheduler when the display size has changed. Called from SF's main thread
     void onPrimaryDisplayAreaChanged(uint32_t displayArea);
 
+    void setRefreshSkipScale(float scale);//skip-frame(60->30fps scale=0.5);jiangbin;200915
+
+
     size_t getEventThreadConnectionCount(ConnectionHandle handle);
 
     std::unique_ptr<VSyncSource> makePrimaryDispSyncSource(const char* name,
@@ -282,6 +285,11 @@ private:
     // In order to make sure that the features don't override themselves, we need a state machine
     // to keep track which feature requested the config change.
     mutable std::mutex mFeatureStateLock;
+
+    /*AW_code: skip-frame scale;jiangbin 200915*/
+    float mRefreshPeriodScale;
+    nsecs_t mRecordPeriod;
+
 
     struct {
         TimerState idleTimer = TimerState::Reset;

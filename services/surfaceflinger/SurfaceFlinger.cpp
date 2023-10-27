@@ -371,7 +371,7 @@ SurfaceFlinger::SurfaceFlinger(Factory& factory) : SurfaceFlinger(factory, SkipI
 
     // Android 12 and beyond, color management in display pipeline is turned on
     // by default.
-    useColorManagement = use_color_management(true);
+    useColorManagement = use_color_management(false);
 
     mDefaultCompositionDataspace =
             static_cast<ui::Dataspace>(default_composition_dataspace(Dataspace::V0_SRGB));
@@ -409,6 +409,22 @@ SurfaceFlinger::SurfaceFlinger(Factory& factory) : SurfaceFlinger(factory, SkipI
             internalDisplayOrientation = ui::ROTATION_270;
             break;
     }
+
+    int32_t user_rotation = property_get_int32("ro.primary_display.user_rotation", int32_t(0));
+    switch (user_rotation) {
+        case 90:
+            internalDisplayOrientation = internalDisplayOrientation + ui::ROTATION_270;
+            break;
+        case 180:
+            internalDisplayOrientation = internalDisplayOrientation + ui::ROTATION_180;
+            break;
+        case 270:
+            internalDisplayOrientation = internalDisplayOrientation + ui::ROTATION_90;
+            break;
+        default:
+            break;
+    }
+
     ALOGV("Internal Display Orientation: %s", toCString(internalDisplayOrientation));
 
     mInternalDisplayPrimaries = sysprop::getDisplayNativePrimaries();
@@ -653,6 +669,17 @@ std::vector<PhysicalDisplayId> SurfaceFlinger::getPhysicalDisplayIds() const {
     return displayIds;
 }
 
+status_t SurfaceFlinger::getPrimaryPhysicalDisplayId(PhysicalDisplayId* id) const {
+    Mutex::Autolock lock(mStateLock);
+    const auto display = getInternalDisplayIdLocked();
+    if (!display) {
+        return NAME_NOT_FOUND;
+    }
+
+    *id = *display;
+    return NO_ERROR;
+}
+
 sp<IBinder> SurfaceFlinger::getPhysicalDisplayToken(PhysicalDisplayId displayId) const {
     Mutex::Autolock lock(mStateLock);
     return getPhysicalDisplayTokenLocked(displayId);
@@ -731,6 +758,9 @@ void SurfaceFlinger::bootFinished() {
             enableRefreshRateOverlay(true);
         }
     }));
+
+    // AW:add for BOOTEVENT  bootanim is end
+    mStartPropertySetThread->addBootEvent(0);
 }
 
 uint32_t SurfaceFlinger::getNewTexture() {
@@ -848,6 +878,9 @@ void SurfaceFlinger::init() {
     if (mStartPropertySetThread->Start() != NO_ERROR) {
         ALOGE("Run StartPropertySetThread failed!");
     }
+
+    // AW:add for BOOTEVENT  bootanim is start
+    mStartPropertySetThread->addBootEvent(1);
 
     ALOGV("Done initializing");
 }
@@ -4064,7 +4097,7 @@ uint32_t SurfaceFlinger::setClientStateLocked(
     if (what & layer_state_t::eBackgroundBlurRadiusChanged && mSupportsBlur) {
         if (layer->setBackgroundBlurRadius(s.backgroundBlurRadius)) flags |= eTraversalNeeded;
     }
-    if (what & layer_state_t::eBlurRegionsChanged) {
+    if (what & layer_state_t::eBlurRegionsChanged && mSupportsBlur) {
         if (layer->setBlurRegions(s.blurRegions)) flags |= eTraversalNeeded;
     }
     if (what & layer_state_t::eLayerStackChanged) {
@@ -4498,6 +4531,7 @@ void SurfaceFlinger::onInitializeDisplays() {
 
     const sp<IBinder> token = display->getDisplayToken().promote();
     LOG_ALWAYS_FATAL_IF(token == nullptr);
+    int32_t user_rotation = property_get_int32("ro.primary_display.user_rotation", int32_t(0));
 
     // reset screen orientation and use primary layer stack
     Vector<ComposerState> state;
@@ -4507,7 +4541,20 @@ void SurfaceFlinger::onInitializeDisplays() {
              DisplayState::eLayerStackChanged;
     d.token = token;
     d.layerStack = 0;
-    d.orientation = ui::ROTATION_0;
+    switch (user_rotation) {
+        case 90:
+            d.orientation = ui::ROTATION_90;
+            break;
+        case 180:
+            d.orientation = ui::ROTATION_180;
+            break;
+        case 270:
+            d.orientation = ui::ROTATION_270;
+            break;
+        default:
+            d.orientation = ui::ROTATION_0;
+            break;
+    }
     d.orientedDisplaySpaceRect.makeInvalid();
     d.layerStackSpaceRect.makeInvalid();
     d.width = 0;
@@ -5238,6 +5285,7 @@ status_t SurfaceFlinger::CheckTransactCodeCredentials(uint32_t code) {
         case REMOVE_TUNNEL_MODE_ENABLED_LISTENER:
         case NOTIFY_POWER_BOOST:
         case SET_GLOBAL_SHADOW_SETTINGS:
+        case GET_PRIMARY_PHYSICAL_DISPLAY_ID:
         case ACQUIRE_FRAME_RATE_FLEXIBILITY_TOKEN: {
             // ACQUIRE_FRAME_RATE_FLEXIBILITY_TOKEN and OVERRIDE_HDR_TYPES are used by CTS tests,
             // which acquire the necessary permission dynamically. Don't use the permission cache
@@ -5357,7 +5405,7 @@ status_t SurfaceFlinger::CheckTransactCodeCredentials(uint32_t code) {
     }
     // Numbers from 1000 to 1040 are currently used for backdoors. The code
     // in onTransact verifies that the user is root, and has access to use SF.
-    if (code >= 1000 && code <= 1040) {
+    if (code >= 1000 && code <= 1100 /*AW_CODE:extend code 1100 by jiangbin;210818*/) {
         ALOGV("Accessing SurfaceFlinger through backdoor code: %u", code);
         return OK;
     }
@@ -5793,6 +5841,18 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
                 repaintEverything();
                 return NO_ERROR;
             }
+           /*AW_code:add skip animation-frame for app-start performance;jiangbin;200915*/
+          case 1100: {
+                float scale = data.readFloat();
+
+                //mScheduler->setDuration(mSfConnectionHandle, std::chrono::nanoseconds(n), 0ns);
+                //std::chrono::nanoseconds(vsyncPeriod)
+                ALOGD("setRefreshSkipScale %f", scale );
+                mScheduler->setRefreshSkipScale(scale);
+                return NO_ERROR;
+            }
+
+
         }
     }
     return err;

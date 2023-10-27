@@ -34,6 +34,7 @@
 #include <compositionengine/RenderSurfaceCreationArgs.h>
 #include <compositionengine/impl/OutputCompositionState.h>
 #include <configstore/Utils.h>
+#include <cutils/properties.h>
 #include <log/log.h>
 #include <system/window.h>
 #include <ui/GraphicTypes.h>
@@ -68,6 +69,8 @@ DisplayDevice::DisplayDevice(DisplayDeviceCreationArgs& args)
         mPhysicalOrientation(args.physicalOrientation),
         mSupportedModes(std::move(args.supportedModes)),
         mIsPrimary(args.isPrimary) {
+    int user_rotation = property_get_int32("ro.primary_display.user_rotation", int32_t(0));
+    mDefaultRotation = ui::ROTATION_0;
     mCompositionDisplay->editState().isSecure = args.isSecure;
     mCompositionDisplay->createRenderSurface(
             compositionengine::RenderSurfaceCreationArgsBuilder()
@@ -99,8 +102,24 @@ DisplayDevice::DisplayDevice(DisplayDeviceCreationArgs& args)
 
     setPowerMode(args.initialPowerMode);
 
+    if (mIsPrimary) {
+        switch (user_rotation) {
+            case 90:
+                mDefaultRotation = ui::ROTATION_90;
+                break;
+            case 180:
+                mDefaultRotation = ui::ROTATION_180;
+                break;
+            case 270:
+                mDefaultRotation = ui::ROTATION_270;
+                break;
+            default:
+                break;
+        }
+    }
+
     // initialize the display orientation transform.
-    setProjection(ui::ROTATION_0, Rect::INVALID_RECT, Rect::INVALID_RECT);
+    setProjection(mDefaultRotation, Rect::INVALID_RECT, Rect::INVALID_RECT);
 }
 
 DisplayDevice::~DisplayDevice() = default;
@@ -228,6 +247,8 @@ void DisplayDevice::setDisplaySize(int width, int height) {
 void DisplayDevice::setProjection(ui::Rotation orientation, Rect layerStackSpaceRect,
                                   Rect orientedDisplaySpaceRect) {
     mOrientation = orientation;
+    bool sfSwap = ((toRotationInt(mPhysicalOrientation) & toRotationInt(android::ui::ROTATION_90))
+            && isPrimary()) ? true : false;
 
     if (isPrimary()) {
         sPrimaryDisplayRotationFlags = ui::Transform::toRotationFlags(orientation);
@@ -237,13 +258,24 @@ void DisplayDevice::setProjection(ui::Rotation orientation, Rect layerStackSpace
         // The destination frame can be invalid if it has never been set,
         // in that case we assume the whole display size.
         orientedDisplaySpaceRect = getCompositionDisplay()->getState().displaySpace.bounds;
+        if (mDefaultRotation == android::ui::ROTATION_90 ||
+                mDefaultRotation == android::ui::ROTATION_270)
+            std::swap(orientedDisplaySpaceRect.right, orientedDisplaySpaceRect.bottom);
+        if (sfSwap)
+            std::swap(orientedDisplaySpaceRect.right, orientedDisplaySpaceRect.bottom);
     }
 
     if (layerStackSpaceRect.isEmpty()) {
         // The layerStackSpaceRect can be invalid if it has never been set, in that case
         // we assume the whole framebuffer size.
         layerStackSpaceRect = getCompositionDisplay()->getState().framebufferSpace.bounds;
-        if (orientation == ui::ROTATION_90 || orientation == ui::ROTATION_270) {
+        if (mDefaultRotation == android::ui::ROTATION_90 ||
+                mDefaultRotation == android::ui::ROTATION_270) {
+            std::swap(layerStackSpaceRect.right, layerStackSpaceRect.bottom);
+            if (orientation == ui::ROTATION_0 || orientation == ui::ROTATION_180 || sfSwap) {
+                std::swap(layerStackSpaceRect.right, layerStackSpaceRect.bottom);
+            }
+        } else if (orientation == ui::ROTATION_90 || orientation == ui::ROTATION_270 || sfSwap) {
             std::swap(layerStackSpaceRect.right, layerStackSpaceRect.bottom);
         }
     }

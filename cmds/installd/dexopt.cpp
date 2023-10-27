@@ -280,18 +280,21 @@ static bool ShouldUseSwapFileForDexopt() {
     return kDefaultProvideSwapFile;
 }
 
-static void SetDex2OatScheduling(bool set_to_bg) {
-    if (set_to_bg) {
+/*AW_CODE;check add lowest priority policy if launched with pgo;jiangbin;191010*/
+static void SetDex2OatScheduling(bool set_to_bg,bool set_lowest_bg) {
+    if (set_to_bg || set_lowest_bg) {
+
         if (!SetTaskProfiles(0, {"Dex2OatBootComplete"})) {
             LOG(ERROR) << "Failed to set dex2oat task profile";
             exit(DexoptReturnCodes::kSetSchedPolicy);
         }
-        if (setpriority(PRIO_PROCESS, 0, ANDROID_PRIORITY_BACKGROUND) < 0) {
+        if (setpriority(PRIO_PROCESS, 0, set_lowest_bg? ANDROID_PRIORITY_LOWEST : ANDROID_PRIORITY_BACKGROUND) < 0) {
             PLOG(ERROR) << "setpriority failed";
             exit(DexoptReturnCodes::kSetPriority);
         }
     }
 }
+/*end*/
 
 static unique_fd create_profile(uid_t uid, const std::string& profile, int32_t flags, mode_t mode) {
     unique_fd fd(TEMP_FAILURE_RETRY(open(profile.c_str(), flags, mode)));
@@ -1704,6 +1707,13 @@ int dexopt(const char* dex_path, uid_t uid, const char* pkgname, const char* ins
     bool generate_app_image = (dexopt_flags & DEXOPT_GENERATE_APP_IMAGE) != 0;
     bool for_restore = (dexopt_flags & DEXOPT_FOR_RESTORE) != 0;
 
+
+    /*AW_CODE; add check launched with PGO-immediately flag;jiangbin;191009*/
+    bool launched_with_pgo = (dexopt_flags & DEXOPT_LAUNCHEDWITHPGO) != 0;
+    /*end*/
+
+
+
     // Check if we're dealing with a secondary dex file and if we need to compile it.
     std::string oat_dir_str;
     std::vector<std::string> context_dex_paths;
@@ -1853,7 +1863,7 @@ int dexopt(const char* dex_path, uid_t uid, const char* pkgname, const char* ins
     if (pid == 0) {
         // Need to set schedpolicy before dropping privileges
         // for cgroup migration. See details at b/175178520.
-        SetDex2OatScheduling(boot_complete);
+        SetDex2OatScheduling(boot_complete,launched_with_pgo/*AW_CODE;check set-to-bg if launched with pgo;jiangbin;191010*/);
 
         /* child -- drop privileges before continuing */
         drop_capabilities(uid);

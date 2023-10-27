@@ -23,6 +23,7 @@
 
 #include <binder/IBinder.h>
 #include <binder/Parcelable.h>
+#include <gui/IGraphicBufferProducer.h>
 
 namespace android {
 

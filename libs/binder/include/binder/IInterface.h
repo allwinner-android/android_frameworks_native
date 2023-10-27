@@ -241,6 +241,8 @@ constexpr const char* const kManualInterfaces[] = {
   "android.hardware.IOMXObserver",
   "android.hardware.IStreamListener",
   "android.hardware.IStreamSource",
+  "android.hardware.IHDCPObserver",
+  "android.hardware.IHDCP",
   "android.media.IAudioService",
   "android.media.IDataSource",
   "android.media.IDrmClient",

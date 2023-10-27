@@ -186,6 +186,7 @@ protected:
         NAVIGATION, // unscaled mapping with assist gesture (touch navigation)
         POINTER,    // pointer mapping (pointer)
     };
+
     DeviceMode mDeviceMode;
 
     // The reader's configuration.
@@ -198,6 +199,13 @@ protected:
             TOUCH_PAD,
             TOUCH_NAVIGATION,
             POINTER,
+        };
+
+        enum RotationType {
+            ROTATION_0,
+            ROTATION_90,
+            ROTATION_180,
+            ROTATION_270,
         };
 
         DeviceType deviceType;
@@ -214,6 +222,7 @@ protected:
         GestureMode gestureMode;
 
         bool wake;
+        RotationType rotation;
     } mParameters;
 
     // Immutable calibration parameters in parsed form.

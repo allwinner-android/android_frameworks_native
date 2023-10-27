@@ -258,6 +258,7 @@ std::optional<int32_t> MultiTouchInputMapper::getActiveBitId(
 void MultiTouchInputMapper::syncTouch(nsecs_t when, RawState* outState) {
     size_t inCount = mMultiTouchMotionAccumulator.getSlotCount();
     size_t outCount = 0;
+    int32_t tmpX, tmpY;
     BitSet32 newPointerIdBits;
     mHavePointerIds = true;
 
@@ -290,8 +291,26 @@ void MultiTouchInputMapper::syncTouch(nsecs_t when, RawState* outState) {
         }
 
         RawPointerData::Pointer& outPointer = outState->rawPointerData.pointers[outCount];
-        outPointer.x = inSlot->getX();
-        outPointer.y = inSlot->getY();
+        tmpX = inSlot->getX();
+        tmpY = inSlot->getY();
+        switch (mParameters.rotation) {
+            case Parameters::ROTATION_90:
+                std::swap(tmpX, tmpY);
+                tmpY = mRawPointerAxes.y.maxValue - tmpY;
+                break;
+           case Parameters::ROTATION_180:
+                tmpX = mRawPointerAxes.x.maxValue - tmpX;
+                tmpY = mRawPointerAxes.y.maxValue - tmpY;
+                break;
+            case Parameters::ROTATION_270:
+                std::swap(tmpX, tmpY);
+                tmpX = mRawPointerAxes.x.maxValue - tmpX;
+                break;
+            default:
+                break;
+        }
+        outPointer.x = tmpX;
+        outPointer.y = tmpY;
         outPointer.pressure = inSlot->getPressure();
         outPointer.touchMajor = inSlot->getTouchMajor();
         outPointer.touchMinor = inSlot->getTouchMinor();
@@ -355,8 +374,14 @@ void MultiTouchInputMapper::syncTouch(nsecs_t when, RawState* outState) {
 void MultiTouchInputMapper::configureRawPointerAxes() {
     TouchInputMapper::configureRawPointerAxes();
 
-    getAbsoluteAxisInfo(ABS_MT_POSITION_X, &mRawPointerAxes.x);
-    getAbsoluteAxisInfo(ABS_MT_POSITION_Y, &mRawPointerAxes.y);
+    if (mParameters.rotation == Parameters::ROTATION_90 ||
+            mParameters.rotation == Parameters::ROTATION_270) {
+        getAbsoluteAxisInfo(ABS_MT_POSITION_Y, &mRawPointerAxes.x);
+        getAbsoluteAxisInfo(ABS_MT_POSITION_X, &mRawPointerAxes.y);
+    } else {
+        getAbsoluteAxisInfo(ABS_MT_POSITION_X, &mRawPointerAxes.x);
+        getAbsoluteAxisInfo(ABS_MT_POSITION_Y, &mRawPointerAxes.y);
+    }
     getAbsoluteAxisInfo(ABS_MT_TOUCH_MAJOR, &mRawPointerAxes.touchMajor);
     getAbsoluteAxisInfo(ABS_MT_TOUCH_MINOR, &mRawPointerAxes.touchMinor);
     getAbsoluteAxisInfo(ABS_MT_WIDTH_MAJOR, &mRawPointerAxes.toolMajor);

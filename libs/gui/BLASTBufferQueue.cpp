@@ -118,12 +118,12 @@ void BLASTBufferItemConsumer::getConnectionEvents(uint64_t frameNumber, bool* ne
 }
 
 void BLASTBufferItemConsumer::setBlastBufferQueue(BLASTBufferQueue* blastbufferqueue) {
-    Mutex::Autolock lock(mMutex);
+    std::scoped_lock lock(mBufferQueueMutex);
     mBLASTBufferQueue = blastbufferqueue;
 }
 
 void BLASTBufferItemConsumer::onSidebandStreamChanged() {
-    Mutex::Autolock lock(mMutex);
+    std::scoped_lock lock(mBufferQueueMutex);
     if (mBLASTBufferQueue != nullptr) {
         sp<NativeHandle> stream = getSidebandStream();
         mBLASTBufferQueue->setSidebandStream(stream);
@@ -457,9 +457,11 @@ void BLASTBufferQueue::processNextBufferLocked(bool useNextTransaction) {
     incStrong((void*)transactionCallbackThunk);
 
     Rect crop = computeCrop(bufferItem);
+#if 0
     const bool updateDestinationFrame =
             bufferItem.mScalingMode == NATIVE_WINDOW_SCALING_MODE_FREEZE ||
             !mLastBufferInfo.hasBuffer;
+#endif
     mLastBufferInfo.update(true /* hasBuffer */, bufferItem.mGraphicBuffer->getWidth(),
                            bufferItem.mGraphicBuffer->getHeight(), bufferItem.mTransform,
                            bufferItem.mScalingMode, crop);
@@ -477,9 +479,7 @@ void BLASTBufferQueue::processNextBufferLocked(bool useNextTransaction) {
     t->addTransactionCompletedCallback(transactionCallbackThunk, static_cast<void*>(this));
     mSurfaceControlsWithPendingCallback.push(mSurfaceControl);
 
-    if (updateDestinationFrame) {
-        t->setDestinationFrame(mSurfaceControl, Rect(0, 0, mSize.getWidth(), mSize.getHeight()));
-    }
+    t->setDestinationFrame(mSurfaceControl, Rect(0, 0, mSize.getWidth(), mSize.getHeight()));
     t->setBufferCrop(mSurfaceControl, crop);
     t->setTransform(mSurfaceControl, bufferItem.mTransform);
     t->setTransformToDisplayInverse(mSurfaceControl, bufferItem.mTransformToDisplayInverse);

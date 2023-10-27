@@ -921,6 +921,10 @@ sp<IBinder> SurfaceComposerClient::getPhysicalDisplayToken(PhysicalDisplayId dis
     return ComposerService::getComposerService()->getPhysicalDisplayToken(displayId);
 }
 
+status_t SurfaceComposerClient::getPrimaryPhysicalDisplayId(PhysicalDisplayId* id) {
+    return ComposerService::getComposerService()->getPrimaryPhysicalDisplayId(id);
+}
+
 sp<IBinder> SurfaceComposerClient::getInternalDisplayToken() {
     return ComposerService::getComposerService()->getInternalDisplayToken();
 }

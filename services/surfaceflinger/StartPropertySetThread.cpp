@@ -15,6 +15,11 @@
  */
 
 #include <cutils/properties.h>
+// AW:Added for BOOTEVENT
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "StartPropertySetThread.h"
 
 namespace android {
@@ -38,4 +43,31 @@ bool StartPropertySetThread::threadLoop() {
     return false;
 }
 
+// AW:Added for BOOTEVENT
+void StartPropertySetThread::addBootEvent(int enable) {
+    int fd;
+    char buf[64];
+
+    if (!property_get_bool("persist.sys.bootevent", false)) {
+        return;
+    }
+
+    fd = open("/proc/bootevent", O_RDWR);
+    if (fd == -1) return;
+
+    if (1 == enable) {
+        strcpy(buf,"BOOT_Animation:START");
+        if (fd > 0) {
+            write(fd, buf, 32);
+            close(fd);
+        }
+    } else {
+        strcpy(buf, "BOOT_Animation:END");
+        if (fd > 0) {
+            write(fd, buf, 32);
+            //write(fd, "0", 1);
+            close(fd);
+        }
+    }
+}
 } // namespace android

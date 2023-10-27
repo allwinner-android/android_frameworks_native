@@ -169,6 +169,7 @@ void add_mountinfo();
 #define PROFILE_DATA_DIR_CUR "/data/misc/profiles/cur"
 #define PROFILE_DATA_DIR_REF "/data/misc/profiles/ref"
 #define XFRM_STAT_PROC_FILE "/proc/net/xfrm_stat"
+#define AWLOG_DATA_DIR "/data/media/awlog"
 #define WLUTIL "/vendor/xbin/wlutil"
 #define WMTRACE_DATA_DIR "/data/misc/wmtrace"
 #define OTA_METADATA_DIR "/metadata/ota"
@@ -1843,6 +1844,7 @@ Dumpstate::RunStatus Dumpstate::DumpstateDefaultAfterCritical() {
     ds.AddDir(RECOVERY_DATA_DIR, true);
     ds.AddDir(UPDATE_ENGINE_LOG_DIR, true);
     ds.AddDir(LOGPERSIST_DATA_DIR, false);
+    ds.AddDir(AWLOG_DATA_DIR, true);
     if (!PropertiesHelper::IsUserBuild()) {
         ds.AddDir(PROFILE_DATA_DIR_CUR, true);
         ds.AddDir(PROFILE_DATA_DIR_REF, true);

@@ -62,7 +62,14 @@ void CursorMotionAccumulator::finishSync() {
 // --- CursorInputMapper ---
 
 CursorInputMapper::CursorInputMapper(InputDeviceContext& deviceContext)
-      : InputMapper(deviceContext) {}
+      : InputMapper(deviceContext) {
+    std::string test("(Test)");
+    std::string::size_type found = deviceContext.getName().rfind(test);
+    if (found != std::string::npos)
+        mOverrideRightClick = false;
+    else
+        mOverrideRightClick = true;
+}
 
 CursorInputMapper::~CursorInputMapper() {}
 
@@ -294,6 +301,13 @@ void CursorInputMapper::process(const RawEvent* rawEvent) {
 void CursorInputMapper::sync(nsecs_t when, nsecs_t readTime) {
     int32_t lastButtonState = mButtonState;
     int32_t currentButtonState = mCursorButtonAccumulator.getButtonState();
+    // if device is not test hid device, override right btn func.
+    if ((currentButtonState & AMOTION_EVENT_BUTTON_SECONDARY) != 0) {
+        if (mOverrideRightClick) {
+            currentButtonState &= ~AMOTION_EVENT_BUTTON_SECONDARY;
+            currentButtonState |= AMOTION_EVENT_BUTTON_BACK;
+        }
+    }
     mButtonState = currentButtonState;
 
     bool wasDown = isPointerDown(lastButtonState);

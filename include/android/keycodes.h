@@ -776,7 +776,43 @@ enum {
     AKEYCODE_THUMBS_DOWN = 287,
     /** Used to switch current account that is consuming content.
      * May be consumed by system to switch current viewer profile. */
-    AKEYCODE_PROFILE_SWITCH = 288
+    AKEYCODE_PROFILE_SWITCH = 288,
+
+    AKEYCODE_MIC_VOLUME_UP   = 370,
+    AKEYCODE_MIC_VOLUME_DOWN = 371,
+    AKEYCODE_KOUT_VOLUME_UP  = 372,
+    AKEYCODE_KOUT_VOLUME_DOWN = 373,
+
+    //HISENSE SECTION,RANG 4201-4300
+    AKEYCODE_HISENSE_FAC_NEC_OK = 4213,
+    AKEYCODE_HISENSE_FAC_NEC_MAC = 4214,
+    AKEYCODE_HISENSE_FAC_NEC_IP = 4215,
+    AKEYCODE_HISENSE_FAC_NEC_M = 4315,
+    AKEYCODE_HISENSE_FAC_NEC_AGING = 4313,
+    AKEYCODE_HISENSE_FAC_NEC_DMP = 4312,
+    AKEYCODE_PRE = 4307,
+    AKEYCODE_NEXT = 4308,
+    AKEYCODE_HISENSE_FAVOURITE_APP = 4229,
+    AKEYCODE_HISENSE_MEDIA_CENTRE = 4320,
+    AKEYCODE_HISENSE_EDUCATION = 4321,
+    AKEYCODE_HISENSE_SHOPPING = 4322,
+    /* add by Gary. start {{----------------------------------- */
+    /* 2011-10-27 */
+    /* add some new keys for TVD */
+    AKEYCODE_TV_SYSTEM       = 10000,
+    AKEYCODE_GOTO            = 10001,
+    AKEYCODE_SUBTITLE        = 10002,
+    AKEYCODE_AUDIO           = 10003,
+    AKEYCODE_ZOOM            = 10004,
+    AKEYCODE_FAVOURITE       = 10006,
+    AKEYCODE_LOOP            = 10007,
+    AKEYCODE_EXPAND          = 10008,
+    AKEYCODE_MOUSE           = 10009,
+    AKEYCODE_MOVIE           = 10010,
+    AKEYCODE_APPS            = 10011,
+    AKEYCODE_BROWSER         = 10012,
+    AKEYCODE_SCREENSHOT      = 10013
+    /* add by Gary. end   -----------------------------------}} */
 
     // NOTE: If you add a new keycode here you must also add it to several other files.
     //       Refer to frameworks/base/core/java/android/view/KeyEvent.java for the full list.

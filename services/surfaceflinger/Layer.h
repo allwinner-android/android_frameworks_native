@@ -276,7 +276,7 @@ public:
         StretchEffect stretchEffect;
 
         // Whether or not this layer is a trusted overlay for input
-        bool isTrustedOverlay;
+        bool isTrustedOverlay{false};
 
         Rect bufferCrop;
         Rect destinationFrame;

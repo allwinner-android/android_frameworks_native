@@ -35,6 +35,7 @@ class StartPropertySetThread : public Thread {
 public:
     explicit StartPropertySetThread(bool timestampPropertyValue);
     status_t Start();
+    void addBootEvent(int enable);
 private:
     virtual bool threadLoop();
     static constexpr const char* kTimestampProperty = "service.sf.present_timestamp";

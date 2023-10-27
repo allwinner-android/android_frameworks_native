@@ -19,6 +19,7 @@
 // clang-format on
 
 #include <input/NamedEnum.h>
+#include <cutils/properties.h>
 #include "TouchInputMapper.h"
 
 #include "CursorButtonAccumulator.h"
@@ -493,6 +494,29 @@ void TouchInputMapper::configureParameters() {
     // up in your pocket but you can enable it using the input device configuration.
     mParameters.wake = getDeviceContext().isExternal();
     getDeviceContext().getConfiguration().tryGetProperty(String8("touch.wake"), mParameters.wake);
+
+    int rotation = 0;
+    if (!(mParameters.deviceType == Parameters::DeviceType::TOUCH_SCREEN &&
+                !mParameters.associatedDisplayIsExternal &&
+                (rotation = (int)property_get_int32("ro.input_flinger.primary_touch.rotation", -1)) != -1)) {
+        if (!getDeviceContext().getConfiguration().tryGetProperty(String8("touch.rotation"), rotation)) {
+            rotation = 0;
+        }
+    }
+    switch (rotation) {
+        case 90:
+            mParameters.rotation = Parameters::ROTATION_90;
+            break;
+        case 180:
+            mParameters.rotation = Parameters::ROTATION_180;
+            break;
+        case 270:
+            mParameters.rotation = Parameters::ROTATION_270;
+            break;
+        default:
+            mParameters.rotation = Parameters::ROTATION_0;
+            break;
+    }
 }
 
 void TouchInputMapper::dumpParameters(std::string& dump) {
@@ -508,6 +532,8 @@ void TouchInputMapper::dumpParameters(std::string& dump) {
                          toString(mParameters.associatedDisplayIsExternal),
                          mParameters.uniqueDisplayId.c_str());
     dump += StringPrintf(INDENT4 "OrientationAware: %s\n", toString(mParameters.orientationAware));
+    dump += StringPrintf(INDENT4 "Wake: %s\n", toString(mParameters.wake));
+    dump += StringPrintf(INDENT4 "touch screen rotation: %d\n", mParameters.rotation * 90);
 }
 
 void TouchInputMapper::configureRawPointerAxes() {
@@ -646,7 +672,7 @@ void TouchInputMapper::configureSurface(nsecs_t when, bool* outResetNeeded) {
         return;
     }
 
-    if (!newViewport->isActive) {
+    if (!newViewport->isActive && !mParameters.wake) {
         ALOGI("Disabling %s (device %i) because the associated viewport is not active",
               getDeviceName().c_str(), getDeviceId());
         mDeviceMode = DeviceMode::DISABLED;
@@ -1044,6 +1070,9 @@ void TouchInputMapper::configureSurface(nsecs_t when, bool* outResetNeeded) {
         // Inform the dispatcher about the changes.
         *outResetNeeded = true;
         bumpGeneration();
+    }
+    if (oldDeviceMode == DeviceMode::DISABLED && mDeviceMode != DeviceMode::DISABLED) {
+        processRawTouches(false /*timeout*/);
     }
 }
 
